@@ -492,7 +492,10 @@
       color: var(--fg-2);
     }
 
-    .hero p {
+    /* Direct child only. As `.hero p` this also captured .lane-use inside the
+       lane cards — and at (0,1,1) it outranked .lane-use's own (0,1,0) rule
+       no matter the source order, painting near-black card copy light grey. */
+    .hero > p {
       color: var(--fg-2);
       max-width: 46ch;
       margin-bottom: 28px;
@@ -544,9 +547,12 @@
       word-break: break-word;
     }
 
-    /* Near-black on a saturated fill loses too much at low opacity — keep the
-       supporting copy nearly solid and let size carry the hierarchy. */
+    /* Sets its own color rather than inheriting the card's --on-lane: any
+       direct rule beats inheritance, and `.hero p` was claiming it. Kept
+       nearly opaque too — near-black on a saturated fill loses more than you
+       expect at low alpha, so let size carry the hierarchy instead. */
     .lane-use {
+      color: var(--on-lane);
       font-size: var(--t-xs);
       line-height: 1.4;
       opacity: .88;
