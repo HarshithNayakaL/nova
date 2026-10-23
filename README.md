@@ -56,6 +56,44 @@ system prompt with presets · temperature and response limit · command palette
 
 Threads are stored in `localStorage` only — nothing is persisted server-side.
 
+## Runtime and security
+
+The serverless functions are pinned to the Node.js 24 LTS line:
+
+```json
+{ "engines": { "node": "24.x" } }
+```
+
+`engines.node` overrides the Vercel project setting, and Vercel resolves `24.x`
+to the newest patch it supports in that major. Before this pin the functions ran
+on whatever the project default happened to be, which could drift onto a line
+that no longer receives security patches at all.
+
+The pin matters because of the Node.js security releases of 21 October 2026
+(`22.23.4`, `24.22.1`, `26.12.1`), which fixed four High-severity issues. Two of
+them touch the only outbound call this app makes — `callUpstream()` in
+`api/_provider.js`, which POSTs to Groq or Hugging Face over TLS with the API key
+as a bearer token:
+
+- **CVE-2026-111497** — out-of-bounds write in the Brotli decoder, exploitable
+  for remote code execution. `fetch` does not advertise `br`, but undici decodes
+  a response body according to the *response's* `Content-Encoding`, so a
+  `Content-Encoding: br` reply is decoded whether or not we asked for it. No
+  request header avoids this; only a patched runtime does.
+- **CVE-2026-106069** and **CVE-2026-105483** — TLS certificate hostname
+  verification bypasses, which is what stands between the bearer token and an
+  attacker holding a certificate for the wrong name.
+- **CVE-2026-105481** — a keep-alive socket accepting a response written before
+  its request was sent. The upstream connection is keep-alive by default.
+
+Not applicable here: the app has no npm dependencies, so there is no
+supply-chain surface, and nothing in `api/` calls `dns.resolve`,
+`crypto.randomUUID`, `crypto.randomInt`, the zip reader, or the permission
+model, which is where the remaining CVEs land.
+
+To confirm a deployment picked it up, check the build log for the Node version,
+or `vercel inspect <deployment-url>`.
+
 ## Deployment
 
 Set **one** of these environment variables in your Vercel project. Groq wins
@@ -75,7 +113,9 @@ never reaches the browser; `/api/chat` and `/api/route` proxy every call.
 npx vercel dev
 ```
 
-Needs the same environment variable in a `.env` file. There is no build step.
+Needs the same environment variable in a `.env` file. There is no build step. `package.json`
+carries no dependencies; it is there to declare the module type and pin the
+Node version.
 
 ## Stack
 

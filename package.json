@@ -1,0 +1,12 @@
+{
+  "name": "nova-model-router",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chat app that scores every turn for difficulty and routes it to the cheapest model that can answer it well.",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
