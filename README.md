@@ -65,9 +65,15 @@ The serverless functions are pinned to the Node.js 24 LTS line:
 ```
 
 `engines.node` overrides the Vercel project setting, and Vercel resolves `24.x`
-to the newest patch it supports in that major. Before this pin the functions ran
-on whatever the project default happened to be, which could drift onto a line
-that no longer receives security patches at all.
+to the newest patch it supports in that major.
+
+The project setting already read `24.x` before this pin, and there is no record
+of it ever being changed, so the pin did not move the runtime off a bad version.
+What it does is make the version a reviewable fact in the repo rather than a
+dashboard setting nobody reads, so a stray change or a default shift cannot move
+it silently. `"type": "module"` is the part with an immediate effect: the build
+log for the previous deploy warned `Node.js functions are compiled from ESM to
+CommonJS` and transpiled all three files; they now run as native ESM.
 
 The pin matters because of the Node.js security releases of 21 October 2026
 (`22.23.4`, `24.22.1`, `26.12.1`), which fixed four High-severity issues. Two of
@@ -91,8 +97,18 @@ supply-chain surface, and nothing in `api/` calls `dns.resolve`,
 `crypto.randomUUID`, `crypto.randomInt`, the zip reader, or the permission
 model, which is where the remaining CVEs land.
 
-To confirm a deployment picked it up, check the build log for the Node version,
-or `vercel inspect <deployment-url>`.
+Vercel deployed WAF rules on 21 October 2026 that block inbound exploitation of
+the Brotli issue for every project. They do not help here: Vercel's own advisory
+states the WAF "does not cover responses your functions fetch from other
+servers", which is precisely the path `callUpstream()` takes. Patching the
+runtime is the only mitigation that reaches it.
+
+Vercel manages patch versions for the `22.x` and `24.x` lines and was still
+rolling the patched builds out at the time of writing, with no stated completion
+date — so being pinned to `24.x` means the patch arrives without a version
+change here, not that it has already landed. `_provider.js` logs
+`[nova] node <version>` once per cold start; read it in the project's Logs tab
+to see the exact patch a running function is on.
 
 ## Deployment
 
