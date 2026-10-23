@@ -62,6 +62,17 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const HF_URL = 'https://router.huggingface.co/v1/chat/completions';
 
 /**
+ * Logged once per cold start, so the runtime the functions actually landed on
+ * is verifiable from Vercel's runtime logs. `engines.node` pins the major and
+ * Vercel resolves the patch, so the patch is worth being able to read back
+ * without a redeploy — the October 2026 Node security releases are the reason
+ * this project pins the line at all.
+ */
+console.log(
+  `[nova] node ${process.version} · region ${process.env.VERCEL_REGION || 'local'}`,
+);
+
+/**
  * Resolve which upstream to talk to. Groq wins when both keys exist.
  * @returns {{name: 'groq'|'hf', url: string, token: string}}
  */
