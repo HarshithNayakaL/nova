@@ -13,9 +13,11 @@
 import {
   LANES,
   ARBITER_LANE,
+  MAX_MESSAGE_CHARS,
   resolveUpstream,
   modelForLane,
   callUpstream,
+  sanitizeMessages,
   handleCors,
 } from './_provider.js';
 
@@ -248,11 +250,16 @@ export default async function handler(req, res) {
   }
 
   const started = Date.now();
-  const { prompt = '', history = [], useArbiter = true } = req.body || {};
+  const { prompt: rawPrompt = '', history: rawHistory = [], useArbiter = true } = req.body || {};
 
-  if (typeof prompt !== 'string' || !prompt.trim()) {
+  if (typeof rawPrompt !== 'string' || !rawPrompt.trim()) {
     return res.status(400).json({ error: 'Missing prompt' });
   }
+
+  // Scoring walks the whole prompt and sums every history entry's length, so
+  // both are bounded here rather than trusted from the request body.
+  const prompt = rawPrompt.slice(0, MAX_MESSAGE_CHARS);
+  const history = sanitizeMessages(rawHistory);
 
   const prior = scoreSignals(prompt, history);
   let lane = laneFromScore(prior);

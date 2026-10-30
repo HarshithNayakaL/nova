@@ -104,13 +104,35 @@ export function normalizeLane(value) {
   return match || null;
 }
 
-/** Strip anything that is not a usable chat turn. */
+/**
+ * Caps on one request's payload. Per-message truncation alone left the number
+ * of messages unbounded, so a single call could push an arbitrary amount of
+ * text upstream on this project's key.
+ */
+export const MAX_MESSAGE_CHARS = 60000;
+const MAX_TURNS = 60;
+const MAX_TOTAL_CHARS = 240000;
+
+/** Strip anything that is not a usable chat turn, and bound the whole payload. */
 export function sanitizeMessages(messages) {
   if (!Array.isArray(messages)) return [];
-  return messages
+
+  const usable = messages
     .filter((m) => m && typeof m.content === 'string' && m.content.length > 0)
     .filter((m) => ['system', 'user', 'assistant'].includes(m.role))
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 60000) }));
+    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) }));
+
+  // The system prompt steers every answer, so it is never what gets dropped.
+  const system = usable.filter((m) => m.role === 'system');
+  const turns = usable.filter((m) => m.role !== 'system').slice(-MAX_TURNS);
+
+  // Over budget, the oldest turns go first; the newest turn always survives.
+  let total = [...system, ...turns].reduce((acc, m) => acc + m.content.length, 0);
+  while (turns.length > 1 && total > MAX_TOTAL_CHARS) {
+    total -= turns.shift().content.length;
+  }
+
+  return [...system, ...turns];
 }
 
 /**
@@ -163,13 +185,57 @@ export async function describeUpstreamError(response) {
   }
 }
 
-/** Standard CORS + preflight handling. Returns true when the request is done. */
+/**
+ * Origins allowed to call these endpoints from a browser.
+ *
+ * This used to answer `*`, which let any site on the web spend this project's
+ * upstream quota from a visitor's browser. The allowlist is the production
+ * aliases, plus whatever host this particular deployment is served on, so
+ * preview builds keep working without being named here.
+ *
+ * The limit of this is worth stating plainly: CORS is enforced by browsers. It
+ * stops a third-party *page* from using these endpoints with someone else's
+ * browser. It does nothing against curl or a server-side script, which sends
+ * no Origin and never needs to read the response through a browser. Rate
+ * limiting or auth is the answer to that; this is not.
+ */
+const STATIC_ORIGINS = [
+  'https://custom-gpt-silk.vercel.app',
+  'https://custom-gpt-harshith29124s-projects.vercel.app',
+  'https://custom-gpt-git-main-harshith29124s-projects.vercel.app',
+];
+
+const LOCALHOST = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  if (LOCALHOST.test(origin)) return true;
+  if (STATIC_ORIGINS.includes(origin)) return true;
+  // Vercel sets these per deployment, which covers preview URLs.
+  return [
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+  ]
+    .filter(Boolean)
+    .some((host) => origin === `https://${host}`);
+}
+
+/** CORS + preflight handling. Returns true when the request is already done. */
 export function handleCors(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers?.origin;
+
+  // A same-origin request carries no Origin the browser will check, so the
+  // header is only set when a cross-origin caller is actually allowed.
+  if (isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return true;
   }
   return false;
