@@ -77,7 +77,7 @@ CommonJS` and transpiled all three files; they now run as native ESM.
 
 The pin matters because of the Node.js security releases of 21 October 2026
 (`22.23.4`, `24.22.1`, `26.12.1`), which fixed four High-severity issues. Two of
-them touch the only outbound call this app makes — `callUpstream()` in
+them reach the only outbound call this app makes — `callUpstream()` in
 `api/_provider.js`, which POSTs to Groq or Hugging Face over TLS with the API key
 as a bearer token:
 
@@ -86,13 +86,19 @@ as a bearer token:
   a response body according to the *response's* `Content-Encoding`, so a
   `Content-Encoding: br` reply is decoded whether or not we asked for it. No
   request header avoids this; only a patched runtime does.
-- **CVE-2026-106069** and **CVE-2026-105483** — TLS certificate hostname
-  verification bypasses, which is what stands between the bearer token and an
-  attacker holding a certificate for the wrong name.
 - **CVE-2026-105481** — a keep-alive socket accepting a response written before
   its request was sent. The upstream connection is keep-alive by default.
 
-Not applicable here: the app has no npm dependencies, so there is no
+The two TLS hostname bypasses, **CVE-2026-106069** and **CVE-2026-105483**, do
+not apply. Both need a connection to a host written as a non-canonical IP
+literal — a leading-zero octet like `0127.0.0.1`, read as octal by WHATWG URL
+rules but as decimal by some OS resolvers, or an IP written with fullwidth
+digits. `GROQ_URL` and `HF_URL` are module constants naming `api.groq.com` and
+`router.huggingface.co`; `resolveUpstream()` returns one of the two and
+`callUpstream()` uses nothing else, so no request body can steer the upstream
+host. There is no path here that connects to an IP literal at all.
+
+Also not applicable: the app has no npm dependencies, so there is no
 supply-chain surface, and nothing in `api/` calls `dns.resolve`,
 `crypto.randomUUID`, `crypto.randomInt`, the zip reader, or the permission
 model, which is where the remaining CVEs land.
@@ -103,12 +109,16 @@ states the WAF "does not cover responses your functions fetch from other
 servers", which is precisely the path `callUpstream()` takes. Patching the
 runtime is the only mitigation that reaches it.
 
-Vercel manages patch versions for the `22.x` and `24.x` lines and was still
-rolling the patched builds out at the time of writing, with no stated completion
-date — so being pinned to `24.x` means the patch arrives without a version
-change here, not that it has already landed. `_provider.js` logs
-`[nova] node <version>` once per cold start; read it in the project's Logs tab
-to see the exact patch a running function is on.
+Vercel manages patch versions for the `22.x` and `24.x` lines. Their advisory
+states that **as of 28 October 2026, 11am PT, all new deployments use a patched
+Node.js**, and that the rollout across existing managed runtimes is still
+completing. A deployment built before that cut-off therefore keeps running the
+Node it was built with: being pinned to `24.x` is what makes a redeploy land on
+the patch, it is not a patch by itself. Any deployment older than the cut-off
+needs rebuilding, not just reconfiguring.
+
+`_provider.js` logs `[nova] node <version>` once per cold start; read it in the
+project's Logs tab to see the exact patch a running function is on.
 
 ## Deployment
 
