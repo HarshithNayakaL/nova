@@ -127,6 +127,29 @@ caught the `24.x` image being a patch behind — the build log does not print th
 version, the deployment file tree is not exposed, and the project setting only
 echoes the range that was asked for. Re-read it after any runtime change.
 
+### Request surface
+
+`/api/chat` and `/api/route` are the only server endpoints, and the upstream key
+never leaves them.
+
+- **CORS** is an allowlist: the production aliases, this deployment's own host
+  (so previews work), and localhost. Matching is exact, so
+  `custom-gpt-silk.vercel.app.evil.com` does not pass. It previously answered
+  `*`, which let any page on the web spend this project's quota from a
+  visitor's browser.
+- **Headers** — CSP, HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`,
+  COOP and `frame-ancestors 'none'`, set in `vercel.json`, with `no-store` on
+  `/api/*`. The CSP allows exactly what the page loads: Google Fonts, jsDelivr
+  for marked, cdnjs for highlight.js, and inline script/style, since the app is
+  one inline `<script>` and one inline `<style>`.
+- **Payload caps** — 60 most recent turns within a 240k character budget,
+  oldest dropped first, never the system prompt or the newest turn.
+
+One gap worth naming rather than hiding: **there is no rate limiting**. CORS is
+browser-enforced, so it stops a third-party page, not `curl`. Anyone who knows
+the URL can call these endpoints directly and spend the upstream quota. Closing
+that needs Vercel's firewall or an auth token in front of the API.
+
 ## Deployment
 
 Set **one** of these environment variables in your Vercel project. Groq wins
