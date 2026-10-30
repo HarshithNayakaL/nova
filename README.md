@@ -58,22 +58,30 @@ Threads are stored in `localStorage` only — nothing is persisted server-side.
 
 ## Runtime and security
 
-The serverless functions are pinned to the Node.js 24 LTS line:
+The serverless functions are pinned to the Node.js 22 LTS line:
 
 ```json
-{ "engines": { "node": "24.x" } }
+{ "engines": { "node": "22.x" } }
 ```
 
-`engines.node` overrides the Vercel project setting, and Vercel resolves `24.x`
-to the newest patch it supports in that major.
+**22.x, not 24.x, and that is deliberate.** `engines.node` overrides the Vercel
+project setting, and Vercel resolves the range to the newest patch in its own
+image for that major — which is not necessarily the newest patch Node has
+released. Measured on 30 October 2026, in `iad1`, from the cold-start log below:
 
-The project setting already read `24.x` before this pin, and there is no record
-of it ever being changed, so the pin did not move the runtime off a bad version.
-What it does is make the version a reviewable fact in the repo rather than a
-dashboard setting nobody reads, so a stray change or a default shift cannot move
-it silently. `"type": "module"` is the part with an immediate effect: the build
-log for the previous deploy warned `Node.js functions are compiled from ESM to
-CommonJS` and transpiled all three files; they now run as native ESM.
+| `engines.node` | Vercel served | Node's patched release | Patched? |
+| --- | --- | --- | --- |
+| `24.x` | `v24.21.0` | `24.22.1` | no |
+| `22.x` | `v22.23.4` | `22.23.4` | **yes** |
+
+Vercel's advisory says all deployments created after 28 October 2026, 11am PT
+use a patched Node. For the `24.x` image that was not true of a build made on
+30 October. `22.x` is the line that actually carries the October 21 fixes, so
+that is the line this project pins until the 24.x image catches up.
+
+`"type": "module"` matters separately: the build log for the deploy before the
+pin warned `Node.js functions are compiled from ESM to CommonJS` and transpiled
+all three files. They now run as native ESM.
 
 The pin matters because of the Node.js security releases of 21 October 2026
 (`22.23.4`, `24.22.1`, `26.12.1`), which fixed four High-severity issues. Two of
@@ -109,16 +117,15 @@ states the WAF "does not cover responses your functions fetch from other
 servers", which is precisely the path `callUpstream()` takes. Patching the
 runtime is the only mitigation that reaches it.
 
-Vercel manages patch versions for the `22.x` and `24.x` lines. Their advisory
-states that **as of 28 October 2026, 11am PT, all new deployments use a patched
-Node.js**, and that the rollout across existing managed runtimes is still
-completing. A deployment built before that cut-off therefore keeps running the
-Node it was built with: being pinned to `24.x` is what makes a redeploy land on
-the patch, it is not a patch by itself. Any deployment older than the cut-off
-needs rebuilding, not just reconfiguring.
+A deployment keeps the runtime it was built with, so changing the pin only takes
+effect on a rebuild — reconfiguring alone does nothing.
 
-`_provider.js` logs `[nova] node <version>` once per cold start; read it in the
-project's Logs tab to see the exact patch a running function is on.
+Do not take the pin on trust. `_provider.js` logs `[nova] node <version>` once
+per cold start; read it in the project's Logs tab, or via the runtime logs API,
+to see the exact patch a running function is on. That log is the only thing that
+caught the `24.x` image being a patch behind — the build log does not print the
+version, the deployment file tree is not exposed, and the project setting only
+echoes the range that was asked for. Re-read it after any runtime change.
 
 ## Deployment
 
