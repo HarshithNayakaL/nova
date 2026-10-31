@@ -34,7 +34,7 @@ export const LANES = {
     label: 'qwen3.8-27b',
     params: '27B',
     context: 131072,
-    price: { in: 0.32, out: 3.20 },
+    price: { in: 0.80, out: 4.00 },
     maxTokens: 4096,
     temperature: 0.7,
   },
