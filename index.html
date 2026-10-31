@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta name="description" content="Nova routes every prompt to the model that suits it: gpt-oss-20b, qwen3.6-27b, or gpt-oss-120b.">
+  <meta name="description" content="Nova routes every prompt to the model that suits it: gpt-oss-20b, qwen3.8-27b, or gpt-oss-120b.">
   <title>Nova — Model Router</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1032,6 +1032,12 @@
       white-space: nowrap;
     }
 
+    /* Idle stays neutral on purpose. This used to paint both the fill and the
+       icon with var(--lane), so pinning L1/L2/L3 gave a lane-coloured circle
+       with a lane-coloured icon inside it — invisible. --lane is set on the
+       button whenever a lane is pinned, with or without text, while .armed
+       needs text too, so an empty composer on a pinned lane showed a blank
+       disc. The lane colour now arrives only with .armed, against --on-lane. */
     .send {
       width: 42px;
       height: 42px;
@@ -1039,12 +1045,13 @@
       display: grid;
       place-items: center;
       border-radius: var(--r-pill);
-      background: var(--lane, var(--surface-3));
-      color: var(--lane, var(--fg-3));
+      background: var(--surface-3);
+      color: var(--fg-2);
       transition: var(--snap);
     }
 
     .send.armed {
+      background: var(--lane, var(--fg));
       color: var(--on-lane);
     }
 
@@ -1054,6 +1061,7 @@
 
     .send:disabled {
       cursor: not-allowed;
+      opacity: .6;
     }
 
     .send.stop {
@@ -1999,7 +2007,7 @@
           use: 'Lookups, rewrites, short answers',
         },
         L2: {
-          name: 'Broad', model: 'qwen3.6-27b', size: '27B', ctx: '131K',
+          name: 'Broad', model: 'qwen3.8-27b', size: '27B', ctx: '131K',
           price: { in: 0.32, out: 3.20 }, hue: 'var(--l2)',
           use: 'Drafting, explanation, long context',
         },
@@ -2818,7 +2826,7 @@
         { label: 'New thread', icon: 'add', keys: 'Ctrl N', run: newThread },
         { label: 'Route automatically', icon: 'magic', run: () => setMode('auto') },
         { label: 'Pin lane L1 — gpt-oss-20b', icon: 'flash', run: () => setMode('L1') },
-        { label: 'Pin lane L2 — qwen3.6-27b', icon: 'flash', run: () => setMode('L2') },
+        { label: 'Pin lane L2 — qwen3.8-27b', icon: 'flash', run: () => setMode('L2') },
         { label: 'Pin lane L3 — gpt-oss-120b', icon: 'flash', run: () => setMode('L3') },
         { label: 'Toggle router panel', icon: 'router', run: () => setScope(!state.scope) },
         { label: 'Switch theme', icon: 'sun', run: () => setTheme(state.theme === 'dark' ? 'light' : 'dark') },

@@ -10,7 +10,7 @@ Three models, GPT OSS and Qwen only:
 | Lane | Model | Handles | USD / 1M tokens |
 | --- | --- | --- | --- |
 | **L1 Swift** | `gpt-oss-20b` | Lookups, rewrites, translation, short answers | 0.10 in · 0.50 out |
-| **L2 Broad** | `qwen3.6-27b` | Drafting, explanation, long context, everyday work | 0.32 in · 3.20 out |
+| **L2 Broad** | `qwen3.8-27b` | Drafting, explanation, long context, everyday work | 0.32 in · 3.20 out |
 | **L3 Deep** | `gpt-oss-120b` | Multi-step reasoning, math, debugging, code review | 0.15 in · 0.75 out |
 
 Prices are approximate and move with the upstream provider.

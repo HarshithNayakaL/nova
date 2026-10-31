@@ -175,7 +175,7 @@ function heuristicReason({ signals, complexity }, lane) {
 const ARBITER_SYSTEM = `You route one chat turn to one of three models. Answer with JSON only.
 
 L1 gpt-oss-20b  — greetings, lookups, rewrites, translation, short factual answers.
-L2 qwen3.6-27b  — drafting, summarising long text, explanation, everyday multi-part work.
+L2 qwen3.8-27b  — drafting, summarising long text, explanation, everyday multi-part work.
 L3 gpt-oss-120b — multi-step reasoning, math, debugging, architecture, code review, anything where a wrong answer is expensive.
 
 Pick the cheapest lane that will produce a genuinely good answer. Do not pick L3 for tone or length alone.
